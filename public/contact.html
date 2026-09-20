@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>İletişim - Cafe Keyif</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .contact-heading {
+            color: #4e342e;
+            font-weight: bold;
+            display: inline-block;
+            padding-bottom: 10px;
+            border-bottom: 3px dashed #8d6e63;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <img src="https://cdn-icons-png.flaticon.com/512/751/751621.png" width="30" height="30" class="d-inline-block align-top" alt="">
+                Cafe Keyif
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="index.html">Anasayfa</a>
+                    <a class="nav-link" href="menu.html">Menü</a>
+                    <a class="nav-link" href="about.html">Hakkımızda</a>
+                    <a class="nav-link active" href="contact.html">İletişim</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container flex-grow-1 d-flex align-items-center justify-content-center" style="margin-top: 60px; margin-bottom: 20px;">
+        
+        <div class="card p-5 shadow-lg border-0" style="max-width: 500px; width: 100%; background-color: rgba(255, 255, 255, 0.95);">
+            
+            <div class="text-center">
+                <h2 class="contact-heading">Bize Ulaşın</h2>
+            </div>
+
+            <form id="contactForm">
+                <div class="mb-3">
+                    <input type="text" class="form-control py-2" id="name" placeholder="Adınız Soyadınız" required>
+                </div>
+                <div class="mb-3">
+                    <input type="email" class="form-control py-2" id="email" placeholder="E-posta Adresiniz" required>
+                </div>
+                <div class="mb-4">
+                    <textarea class="form-control" id="message" rows="4" placeholder="Mesajınız" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" style="background-color: #8B4513; border: none;">
+                    GÖNDER
+                </button>
+            </form>
+
+            <div class="text-center mt-4 text-muted">
+                <small><i class="fa-brands fa-instagram me-1"></i> @cafekeyif</small>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-4 text-center text-md-start mb-2 mb-md-0">
+                    <span class="footer-text">&copy; 2025 <strong>Cafe Keyif</strong>. Tüm hakları saklıdır.</span>
+                </div>
+                <div class="col-md-4 text-center mb-2 mb-md-0">
+                    <a href="#" target="_blank"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" target="_blank"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#" target="_blank"><i class="fa-brands fa-facebook"></i></a>
+                </div>
+                <div class="col-md-4 text-center text-md-end">
+                    <span class="footer-text"><i class="fa-regular fa-clock me-2"></i> 09:00 - 23:00</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Formdaki verileri al
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                message: document.getElementById('message').value
+            };
+
+            // Backend'e gönder
+            fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                if(response.ok) {
+                    alert("Mesajınız bize ulaştı! En kısa sürede dönüş yapacağız. ☕");
+                    document.getElementById('contactForm').reset();
+                } else {
+                    alert("Bir hata oluştu, lütfen tekrar deneyin.");
+                }
+            })
+            .catch(() => alert("Sunucuya ulaşılamadı, lütfen tekrar deneyin."));
+        });
+    </script>
+
+</body>
+</html>

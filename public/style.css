@@ -1,0 +1,108 @@
+body {
+    background-image: url('https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1920&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    display: flex;       
+    flex-direction: column;
+    padding-bottom: 0 !important;
+    user-select: none;  
+}
+
+.navbar {
+    background-color: rgba(61, 43, 31, 0.95) !important; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    user-select: none;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: #fce4ec !important; 
+    font-size: 1.5rem;
+}
+
+.container.main-content, .card, .bg-light, .table {
+    background-color: rgba(255, 255, 255, 0.92) !important; 
+    border-radius: 15px !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(4px); 
+}
+
+.card {
+    transition: transform 0.3s ease;
+    border: none;
+}
+
+.card:hover {
+    transform: translateY(-5px); 
+}
+
+/* Menüdeki Fiyat Rengi */
+.text-primary {
+    color: #8B4513 !important; 
+    font-weight: bold;
+}
+
+/* Butonlar */
+.btn-primary {
+    background-color: #8B4513; 
+    border-color: #8B4513;
+    padding: 12px 35px;        
+    font-weight: bold;         
+    letter-spacing: 1px;       
+    transition: all 0.3s ease; 
+}
+
+.btn-primary:hover {
+    background-color: #4E342E; 
+    border-color: #4E342E;
+    color: #fff;               
+    
+    
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 10px 20px rgba(62, 39, 35, 0.4); 
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(62, 39, 35, 0.4);
+}
+
+
+.table-dark {
+    background-color: #3e2723 !important; 
+}
+
+.footer {
+    margin-top: auto; 
+    background-color: #3e2723;
+    color: #efebe9;
+    padding: 15px 0;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+    border-top: 1px solid #5d4037;
+    width: 100%;
+    user-select: none;
+}
+
+.footer a {
+    color: #efebe9;
+    text-decoration: none;
+    font-size: 1.2rem;
+    margin: 0 10px;
+    transition: color 0.3s ease;
+}
+
+.footer a:hover {
+    color: #ffccbc;
+    transform: scale(1.1);
+}
+
+.footer-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
