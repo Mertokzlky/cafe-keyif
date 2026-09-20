@@ -4,7 +4,7 @@ Kurgusal bir kafe için geliştirilmiş, **menü ve mesaj yönetimi** yapan tam 
 
 > *English:* A full-stack café website built with Node.js, Express and SQLite. Visitors can browse the menu and send messages; an authenticated admin can manage menu items (CRUD) and read/delete contact messages.
 
-🔗 **Canlı demo:** https://cafeprojefinal.onrender.com
+🔗 **Canlı demo:** https://cafe-keyif.onrender.com
 *(Ücretsiz Render planında çalıştığı için ilk açılış 2-3 dakika sürebilir ve sunucu yeniden başladığında veritabanı sıfırlanır.)*
 
 <!-- Ekran görüntülerini docs/screenshots/ klasörüne koyup aşağıdaki satırları açın -->
