@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Yönetim Paneli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-danger fixed-top" style="background-color: #d32f2f !important;">
+        <div class="container">
+            <span class="navbar-brand">🔧 Yönetim Paneli</span>
+            <a class="btn btn-light btn-sm text-danger fw-bold" href="index.html" onclick="sessionStorage.removeItem('token')">Çıkış Yap</a>
+        </div>
+    </nav>
+
+    <div class="container main-content p-4" style="margin-top: 100px;">
+        
+        <div class="row">
+    
+            <div class="col-md-4">
+                <div class="card p-3 mb-4 border-0 bg-white">
+                    <h5 class="mb-3 text-success">➕ Yeni Ürün Ekle</h5>
+                    <form id="addForm">
+                        
+                        <div class="mb-2">
+                            <input type="text" id="name" class="form-control" placeholder="Ürün Adı" required>
+                        </div>
+
+                        <div class="mb-2">
+                            <input type="number" id="price" class="form-control" placeholder="Fiyat (TL)" min="0" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <input class="form-control" list="categoryOptions" id="category" placeholder="Kategori Seç veya Yaz..." required>
+                            <datalist id="categoryOptions">
+                                <option value="Kahve">
+                                <option value="Tatlı">
+                                <option value="Sıcak İçecek">
+                                <option value="Soğuk İçecek">
+                                <option value="Sandviç">
+                                <option value="Atıştırmalık">
+                            </datalist>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Kaydet</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="bg-white p-3 rounded">
+                    <h5 class="mb-3 text-primary">📋 Ürün Listesi</h5>
+                    <table class="table table-hover">
+                        <thead class="table-dark"><tr><th>Ürün</th><th>Fiyat</th><th>Kategori</th><th>İşlem</th></tr></thead>
+                        <tbody id="adminTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4 mb-5">
+            <div class="col-12">
+                <div class="bg-white p-3 rounded shadow-sm">
+                    <h5 class="mb-3 text-danger border-bottom pb-2">📩 Gelen Mesajlar (İletişim)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Gönderen</th>
+                                    <th>E-posta</th>
+                                    <th>Mesaj</th>
+                                    <th>İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="messagesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = sessionStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+
+        // XSS'e karşı: kullanıcıdan gelen metinleri HTML'e basmadan önce kaçış yap
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (res.status === 401) {
+                sessionStorage.removeItem('token');
+                window.location.href = 'login.html';
+                throw new Error('Oturum süresi doldu, tekrar giriş yapın.');
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Bir hata oluştu.');
+            return data;
+        }
+
+        let items = [];
+
+        async function loadItems() {
+            items = await api('/api/menu');
+            document.getElementById('adminTable').innerHTML = items.map(item => `
+                <tr>
+                    <td>${esc(item.name)}</td>
+                    <td><span class="badge bg-warning text-dark">${Number(item.price)} TL</span></td>
+                    <td>${esc(item.category)}</td>
+                    <td>
+                        <button data-action="del" data-id="${item.id}" class="btn btn-sm btn-outline-danger">Sil</button>
+                        <button data-action="edit" data-id="${item.id}" class="btn btn-sm btn-outline-primary">Düzenle</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        async function loadMessages() {
+            const data = await api('/api/messages');
+            const table = document.getElementById('messagesTable');
+            if (data.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="text-center p-3 text-muted">Henüz hiç mesaj yok.</td></tr>';
+                return;
+            }
+            table.innerHTML = data.map(msg => `
+                <tr>
+                    <td style="font-size: 0.9rem;">${esc(msg.date)}</td>
+                    <td class="fw-bold">${esc(msg.name)}</td>
+                    <td><a href="mailto:${esc(msg.email)}">${esc(msg.email)}</a></td>
+                    <td>${esc(msg.message)}</td>
+                    <td><button data-id="${msg.id}" class="btn btn-sm btn-danger">Sil</button></td>
+                </tr>`).join('');
+        }
+
+        document.getElementById('addForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newItem = {
+                name: document.getElementById('name').value,
+                price: document.getElementById('price').value,
+                category: document.getElementById('category').value
+            };
+            try {
+                await api('/api/menu', { method: 'POST', body: JSON.stringify(newItem) });
+                await loadItems();
+                document.getElementById('addForm').reset();
+                alert('Ürün başarıyla eklendi! ✅');
+            } catch (err) {
+                alert('Hata: ' + err.message);
+            }
+        });
+
+        document.getElementById('adminTable').addEventListener('click', async (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const item = items.find(i => i.id === Number(btn.dataset.id));
+            if (!item) return;
+
+            try {
+                if (btn.dataset.action === 'del') {
+                    if (!confirm('Silmek istediğine emin misin?')) return;
+                    await api(`/api/menu/${item.id}`, { method: 'DELETE' });
+                } else {
+                    const newPrice = prompt(`${item.name} için yeni fiyatı girin:`, item.price);
+                    if (newPrice === null || newPrice.trim() === '') return;
+                    await api(`/api/menu/${item.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ name: item.name, price: newPrice, category: item.category })
+                    });
+                }
+                await loadItems();
+            } catch (err) {
+                alert('Hata: ' + err.message);
+            }
+        });
+
+        document.getElementById('messagesTable').addEventListener('click', async (e) => {
+            const btn = e.target.closest('button');
+            if (!btn || !confirm('Bu mesajı silmek istiyor musunuz?')) return;
+            try {
+                await api(`/api/messages/${btn.dataset.id}`, { method: 'DELETE' });
+                await loadMessages();
+            } catch (err) {
+                alert('Hata: ' + err.message);
+            }
+        });
+
+        loadItems().catch(() => {});
+        loadMessages().catch(() => {});
+    </script>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-4 text-center text-md-start mb-2 mb-md-0"><span class="footer-text">&copy; 2025 <strong>Cafe Keyif</strong>. Tüm hakları saklıdır.</span></div>
+                <div class="col-md-4 text-center mb-2 mb-md-0">
+                    <a href="#" target="_blank"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" target="_blank"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#" target="_blank"><i class="fa-brands fa-facebook"></i></a>
+                </div>
+                <div class="col-md-4 text-center text-md-end"><span class="footer-text"><i class="fa-regular fa-clock me-2"></i> 09:00 - 23:00</span></div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
