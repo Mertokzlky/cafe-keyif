@@ -1,0 +1,29 @@
+{
+  "name": "cafeproje",
+  "version": "1.0.0",
+  "description": "Cafe Keyif - Node.js, Express ve SQLite ile geliştirilmiş kafe menü yönetim sistemi",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "sqlite",
+    "crud",
+    "bootstrap",
+    "admin-panel"
+  ],
+  "author": "Mert Ali Kızılkaya",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.1",
+    "express": "^5.2.1",
+    "sqlite3": "^5.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
