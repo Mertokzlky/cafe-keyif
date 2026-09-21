@@ -5,6 +5,7 @@
     <title>Yönetim Paneli</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="theme.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
@@ -42,6 +43,14 @@
                                 <option value="Sandviç">
                                 <option value="Atıştırmalık">
                             </datalist>
+                        </div>
+
+                        <div class="mb-2">
+                            <textarea id="description" class="form-control" rows="2" maxlength="200" placeholder="Kısa açıklama (isteğe bağlı)"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <input type="url" id="image" class="form-control" placeholder="Görsel adresi https://... (isteğe bağlı)">
                         </div>
 
                         <button type="submit" class="btn btn-success w-100">Kaydet</button>
@@ -83,6 +92,49 @@
         </div>
     </div>
 
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="editForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editModalTitle">Ürünü Düzenle</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editId">
+                        <div class="mb-2">
+                            <label class="form-label small mb-1" for="editName">Ürün adı</label>
+                            <input type="text" id="editName" class="form-control" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-5 mb-2">
+                                <label class="form-label small mb-1" for="editPrice">Fiyat (TL)</label>
+                                <input type="number" id="editPrice" class="form-control" min="0" required>
+                            </div>
+                            <div class="col-7 mb-2">
+                                <label class="form-label small mb-1" for="editCategory">Kategori</label>
+                                <input type="text" id="editCategory" class="form-control" list="categoryOptions" required>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1" for="editDescription">Açıklama</label>
+                            <textarea id="editDescription" class="form-control" rows="2" maxlength="200"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1" for="editImage">Görsel adresi</label>
+                            <input type="url" id="editImage" class="form-control" placeholder="https://...">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
+                        <button type="submit" class="btn btn-success">Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const token = sessionStorage.getItem('token');
         if (!token) window.location.href = 'login.html';
@@ -116,7 +168,7 @@
             items = await api('/api/menu');
             document.getElementById('adminTable').innerHTML = items.map(item => `
                 <tr>
-                    <td>${esc(item.name)}</td>
+                    <td>${esc(item.name)}${item.description ? `<div class="small text-muted">${esc(item.description)}</div>` : ''}</td>
                     <td><span class="badge bg-warning text-dark">${Number(item.price)} TL</span></td>
                     <td>${esc(item.category)}</td>
                     <td>
@@ -148,7 +200,9 @@
             const newItem = {
                 name: document.getElementById('name').value,
                 price: document.getElementById('price').value,
-                category: document.getElementById('category').value
+                category: document.getElementById('category').value,
+                description: document.getElementById('description').value,
+                image: document.getElementById('image').value
             };
             try {
                 await api('/api/menu', { method: 'POST', body: JSON.stringify(newItem) });
@@ -160,24 +214,48 @@
             }
         });
 
+        const editModalEl = document.getElementById('editModal');
+        const editModal = bootstrap.Modal.getOrCreateInstance(editModalEl);
+
         document.getElementById('adminTable').addEventListener('click', async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
             const item = items.find(i => i.id === Number(btn.dataset.id));
             if (!item) return;
 
-            try {
-                if (btn.dataset.action === 'del') {
-                    if (!confirm('Silmek istediğine emin misin?')) return;
+            if (btn.dataset.action === 'del') {
+                if (!confirm('Silmek istediğine emin misin?')) return;
+                try {
                     await api(`/api/menu/${item.id}`, { method: 'DELETE' });
-                } else {
-                    const newPrice = prompt(`${item.name} için yeni fiyatı girin:`, item.price);
-                    if (newPrice === null || newPrice.trim() === '') return;
-                    await api(`/api/menu/${item.id}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ name: item.name, price: newPrice, category: item.category })
-                    });
+                    await loadItems();
+                } catch (err) {
+                    alert('Hata: ' + err.message);
                 }
+                return;
+            }
+
+            document.getElementById('editId').value = item.id;
+            document.getElementById('editName').value = item.name;
+            document.getElementById('editPrice').value = item.price;
+            document.getElementById('editCategory').value = item.category;
+            document.getElementById('editDescription').value = item.description || '';
+            document.getElementById('editImage').value = item.image || '';
+            editModal.show();
+        });
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const body = {
+                name: document.getElementById('editName').value,
+                price: document.getElementById('editPrice').value,
+                category: document.getElementById('editCategory').value,
+                description: document.getElementById('editDescription').value,
+                image: document.getElementById('editImage').value
+            };
+            try {
+                await api(`/api/menu/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+                editModal.hide();
                 await loadItems();
             } catch (err) {
                 alert('Hata: ' + err.message);
