@@ -16,8 +16,10 @@ Kurgusal bir kafe için geliştirilmiş, **menü ve mesaj yönetimi** yapan tam 
 
 ## Özellikler
 
-- 📋 Kategorilere göre gruplanmış dinamik menü sayfası
-- 🔧 Yönetim paneli: ürün ekleme, fiyat güncelleme, silme (CRUD)
+- 📋 Kategorilere göre gruplanmış dinamik menü sayfası; ürün kartlarında görsel, açıklama ve fiyat
+- 🔎 Kategori filtresi ve arama kutusu (Türkçe karakterlerden bağımsız: "cay" yazınca "Çay" da bulunur)
+- 🌙 Açık/koyu tema; tercih tarayıcıda saklanır, ilk açılışta sistem temasına uyulur
+- 🔧 Yönetim paneli: ürün ekleme, düzenleme (ad, fiyat, kategori, açıklama, görsel), silme (CRUD)
 - 🔐 Sunucu taraflı yönetici girişi (imzalı, süreli token); yönetim uçları korumalıdır
 - 📩 İletişim formu ve yönetim panelinde mesaj listesi
 - ✅ Sunucu tarafında doğrulama: boş alan, negatif fiyat, aynı isimli ürün kontrolü
@@ -65,7 +67,7 @@ Kullanıcı adı ve şifre `.env` dosyasındaki `ADMIN_USER` ve `ADMIN_PASS` de�
 | --- | --- | --- | --- |
 | `POST` | `/api/login` | Giriş yapar, token döner | Herkese açık |
 | `GET` | `/api/menu` | Menüyü listeler | Herkese açık |
-| `POST` | `/api/menu` | Ürün ekler | Yönetici |
+| `POST` | `/api/menu` | Ürün ekler (`name`, `price`, `category`, isteğe bağlı `description`, `image`) | Yönetici |
 | `PUT` | `/api/menu/:id` | Ürün günceller | Yönetici |
 | `DELETE` | `/api/menu/:id` | Ürün siler | Yönetici |
 | `POST` | `/api/messages` | İletişim mesajı gönderir | Herkese açık |
@@ -89,7 +91,8 @@ cafe-keyif/
     ├── contact.html  # İletişim formu
     ├── login.html    # Yönetici girişi
     ├── admin.html    # Yönetim paneli
-    └── style.css
+    ├── style.css
+    └── theme.js  # Açık/koyu tema düğmesi
 ```
 
 ## Geliştirme fikirleri
