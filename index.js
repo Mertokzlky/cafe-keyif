@@ -42,16 +42,34 @@ db.serialize(() => {
         date TEXT
     )`);
 
-    // Menü boşsa örnek ürünlerle doldur
-    db.get("SELECT count(*) as count FROM menu", (err, row) => {
-        if (!err && row.count === 0) {
-            const stmt = db.prepare("INSERT INTO menu (name, price, category) VALUES (?, ?, ?)");
-            stmt.run("Latte", 65, "Kahve");
-            stmt.run("Cheesecake", 85, "Tatlı");
-            stmt.run("Çay", 25, "Sıcak İçecek");
-            stmt.run("Pumpkin Spice Latte", 170, "Kahve");
-            stmt.finalize();
-        }
+    // Eski veritabanlarına yeni sütunları ekle, sonra menü boşsa örnek ürünlerle doldur
+    db.all("PRAGMA table_info(menu)", (err, cols) => {
+        if (err) return console.error(err.message);
+        const names = cols.map((c) => c.name);
+
+        db.serialize(() => {
+            if (!names.includes('description')) db.run("ALTER TABLE menu ADD COLUMN description TEXT DEFAULT ''");
+            if (!names.includes('image')) db.run("ALTER TABLE menu ADD COLUMN image TEXT DEFAULT ''");
+
+            db.get("SELECT count(*) as count FROM menu", (err, row) => {
+                if (err || row.count !== 0) return;
+                const samples = [
+                    ["Latte", 65, "Kahve", "Yumuşak sütlü espresso, ipeksi süt köpüğüyle."],
+                    ["Espresso", 45, "Kahve", "Yoğun aromalı, çift shot espresso."],
+                    ["Filtre Kahve", 55, "Kahve", "Günlük demlenen, hafif içimli klasik filtre kahve."],
+                    ["Pumpkin Spice Latte", 170, "Kahve", "Balkabağı ve tarçınlı baharat aromalı mevsim favorisi."],
+                    ["Cheesecake", 85, "Tatlı", "Ev yapımı, taze meyve sosuyla servis edilir."],
+                    ["Tiramisu", 90, "Tatlı", "Mascarpone kreması ve kahveye batırılmış bisküvi katmanları."],
+                    ["Çay", 25, "Sıcak İçecek", "Demlikte servis edilen taze çay."],
+                    ["Sahlep", 70, "Sıcak İçecek", "Tarçınlı, kış aylarının vazgeçilmezi."],
+                    ["Limonata", 60, "Soğuk İçecek", "Taze sıkılmış limon, nane yapraklarıyla."],
+                    ["Buzlu Çay", 45, "Soğuk İçecek", "Şeftali aromalı, bol buzlu."]
+                ];
+                const stmt = db.prepare("INSERT INTO menu (name, price, category, description) VALUES (?, ?, ?, ?)");
+                samples.forEach((row) => stmt.run(row));
+                stmt.finalize();
+            });
+        });
     });
 });
 
@@ -101,6 +119,8 @@ function parseMenuBody(body = {}) {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const category = typeof body.category === 'string' ? body.category.trim() : '';
     const price = Number(body.price);
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const image = typeof body.image === 'string' ? body.image.trim() : '';
 
     if (!name || !category || body.price === '' || body.price == null) {
         return { error: 'Lütfen tüm alanları doldurunuz.' };
@@ -111,7 +131,13 @@ function parseMenuBody(body = {}) {
     if (name.length > 100 || category.length > 50) {
         return { error: 'Ürün adı veya kategori çok uzun.' };
     }
-    return { name, price, category };
+    if (description.length > 200) {
+        return { error: 'Açıklama en fazla 200 karakter olabilir.' };
+    }
+    if (image && (image.length > 500 || !/^https?:\/\/\S+$/i.test(image))) {
+        return { error: 'Görsel adresi http:// veya https:// ile başlayan geçerli bir bağlantı olmalı.' };
+    }
+    return { name, price, category, description, image };
 }
 
 // --- MENÜ API ---
@@ -123,28 +149,28 @@ app.get('/api/menu', (req, res) => {
 });
 
 app.post('/api/menu', requireAuth, (req, res) => {
-    const { error, name, price, category } = parseMenuBody(req.body);
+    const { error, name, price, category, description, image } = parseMenuBody(req.body);
     if (error) return res.status(400).json({ error });
 
     db.get("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", [name], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (row) return res.status(400).json({ error: `"${name}" isimli ürün zaten menüde var!` });
 
-        db.run("INSERT INTO menu (name, price, category) VALUES (?, ?, ?)", [name, price, category], function (err) {
+        db.run("INSERT INTO menu (name, price, category, description, image) VALUES (?, ?, ?, ?, ?)", [name, price, category, description, image], function (err) {
             if (err) res.status(500).json({ error: err.message });
-            else res.status(201).json({ id: this.lastID, name, price, category });
+            else res.status(201).json({ id: this.lastID, name, price, category, description, image });
         });
     });
 });
 
 app.put('/api/menu/:id', requireAuth, (req, res) => {
-    const { error, name, price, category } = parseMenuBody(req.body);
+    const { error, name, price, category, description, image } = parseMenuBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    db.run("UPDATE menu SET name = ?, price = ?, category = ? WHERE id = ?", [name, price, category, req.params.id], function (err) {
+    db.run("UPDATE menu SET name = ?, price = ?, category = ?, description = ?, image = ? WHERE id = ?", [name, price, category, description, image, req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Ürün bulunamadı.' });
-        res.json({ id: Number(req.params.id), name, price, category });
+        res.json({ id: Number(req.params.id), name, price, category, description, image });
     });
 });
 
