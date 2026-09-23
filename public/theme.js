@@ -15,7 +15,8 @@
     root.setAttribute('data-bs-theme', theme); // sayfa çizilmeden uygula, yanıp sönmeyi önler
 
     document.addEventListener('DOMContentLoaded', function () {
-        var host = document.querySelector('.navbar .navbar-nav') || document.querySelector('.navbar .container');
+        var iconsHost = document.querySelector('.navbar-icons');
+        var host = iconsHost || document.querySelector('.navbar .navbar-nav') || document.querySelector('.navbar .container');
         if (!host) return;
 
         var btn = document.createElement('button');
@@ -38,7 +39,7 @@
 
         render();
 
-        if (host.classList.contains('navbar-nav')) {
+        if (iconsHost || host.classList.contains('navbar-nav')) {
             host.appendChild(btn);
         } else {
             // Yönetim paneli: düğmeyi "Çıkış Yap" ile birlikte sağda grupla
