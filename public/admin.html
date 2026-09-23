@@ -69,6 +69,28 @@
             </div>
         </div>
 
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="bg-white p-3 rounded shadow-sm">
+                    <h5 class="mb-3 text-primary border-bottom pb-2">🧾 Siparişler</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Ürünler</th>
+                                    <th>Not</th>
+                                    <th>Toplam</th>
+                                    <th>Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row mt-4 mb-5">
             <div class="col-12">
                 <div class="bg-white p-3 rounded shadow-sm">
@@ -178,6 +200,47 @@
                 </tr>`).join('');
         }
 
+        const ORDER_STATUSES = ['Hazırlanıyor', 'Teslim edildi'];
+
+        async function loadOrders() {
+            const orders = await api('/api/orders');
+            const table = document.getElementById('ordersTable');
+            if (orders.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="text-center p-3 text-muted">Henüz sipariş yok.</td></tr>';
+                return;
+            }
+            table.innerHTML = orders.map(order => {
+                const itemsText = order.items.map(i => `${esc(i.name)} ×${i.qty}`).join(', ');
+                const options = ORDER_STATUSES.map(st =>
+                    `<option value="${st}" ${st === order.status ? 'selected' : ''}>${st}</option>`).join('');
+                return `
+                    <tr>
+                        <td style="font-size: 0.9rem;">${esc(order.date)}</td>
+                        <td>${itemsText}</td>
+                        <td class="text-muted small">${order.note ? esc(order.note) : '—'}</td>
+                        <td class="fw-bold">${order.total} TL</td>
+                        <td>
+                            <select class="form-select form-select-sm order-status" data-id="${order.id}"
+                                    style="min-width: 140px;">${options}</select>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        document.getElementById('ordersTable').addEventListener('change', async (e) => {
+            const select = e.target.closest('.order-status');
+            if (!select) return;
+            try {
+                await api(`/api/orders/${select.dataset.id}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: select.value })
+                });
+            } catch (err) {
+                alert('Hata: ' + err.message);
+                await loadOrders();
+            }
+        });
+
         async function loadMessages() {
             const data = await api('/api/messages');
             const table = document.getElementById('messagesTable');
@@ -274,6 +337,7 @@
         });
 
         loadItems().catch(() => {});
+        loadOrders().catch(() => {});
         loadMessages().catch(() => {});
     </script>
 
