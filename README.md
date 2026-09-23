@@ -19,6 +19,8 @@ Kurgusal bir kafe için geliştirilmiş, **menü ve mesaj yönetimi** yapan tam 
 - 📋 Kategorilere göre gruplanmış dinamik menü sayfası; ürün kartlarında görsel, açıklama ve fiyat
 - 🔎 Kategori filtresi ve arama kutusu (Türkçe karakterlerden bağımsız: "cay" yazınca "Çay" da bulunur)
 - 🌙 Açık/koyu tema; tercih tarayıcıda saklanır, ilk açılışta sistem temasına uyulur
+- 🛒 Sepet: ürün ekleme, adet değiştirme, sipariş notu; sepet tarayıcıda saklanır
+- 🧾 Sipariş yönetimi: yönetim panelinde gelen siparişler ve "Hazırlanıyor / Teslim edildi" durum takibi
 - 🔧 Yönetim paneli: ürün ekleme, düzenleme (ad, fiyat, kategori, açıklama, görsel), silme (CRUD)
 - 🔐 Sunucu taraflı yönetici girişi (imzalı, süreli token); yönetim uçları korumalıdır
 - 📩 İletişim formu ve yönetim panelinde mesaj listesi
@@ -73,6 +75,9 @@ Kullanıcı adı ve şifre `.env` dosyasındaki `ADMIN_USER` ve `ADMIN_PASS` de�
 | `POST` | `/api/messages` | İletişim mesajı gönderir | Herkese açık |
 | `GET` | `/api/messages` | Mesajları listeler | Yönetici |
 | `DELETE` | `/api/messages/:id` | Mesaj siler | Yönetici |
+| `POST` | `/api/orders` | Sipariş oluşturur (`items: [{id, qty}]`, isteğe bağlı `note`) | Herkese açık |
+| `GET` | `/api/orders` | Siparişleri listeler | Yönetici |
+| `PUT` | `/api/orders/:id/status` | Sipariş durumunu günceller | Yönetici |
 
 Yönetici uçları `Authorization: Bearer <token>` başlığı bekler.
 
@@ -98,6 +103,7 @@ cafe-keyif/
 ## Geliştirme fikirleri
 
 - Şifrelerin `bcrypt` ile hash'lenip veritabanında tutulması
+- Sipariş geçmişinin sayfalanması ve tarihe göre filtrelenmesi
 - Ürün görseli yükleme
 - Kalıcı veritabanı (PostgreSQL) ile canlıya alma
 - Otomatik testler (Jest + Supertest)
