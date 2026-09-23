@@ -42,6 +42,15 @@ db.serialize(() => {
         date TEXT
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        items TEXT,
+        total REAL,
+        note TEXT,
+        status TEXT DEFAULT 'Hazırlanıyor',
+        date TEXT
+    )`);
+
     // Eski veritabanlarına yeni sütunları ekle, sonra menü boşsa örnek ürünlerle doldur
     db.all("PRAGMA table_info(menu)", (err, cols) => {
         if (err) return console.error(err.message);
@@ -113,6 +122,9 @@ app.post('/api/login', (req, res) => {
     }
     res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış!' });
 });
+
+// --- SİPARİŞ DURUMLARI ---
+const ORDER_STATUSES = ['Hazırlanıyor', 'Teslim edildi'];
 
 // --- DOĞRULAMA YARDIMCILARI ---
 function parseMenuBody(body = {}) {
@@ -213,6 +225,79 @@ app.delete('/api/messages/:id', requireAuth, (req, res) => {
     db.run("DELETE FROM messages WHERE id = ?", req.params.id, function (err) {
         if (err) res.status(500).json({ error: err.message });
         else res.json({ message: 'Mesaj silindi' });
+    });
+});
+
+// --- SİPARİŞ API ---
+app.post('/api/orders', (req, res) => {
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 300) : '';
+
+    if (rawItems.length === 0) {
+        return res.status(400).json({ error: 'Sepetiniz boş.' });
+    }
+    if (rawItems.length > 30) {
+        return res.status(400).json({ error: 'Sipariş en fazla 30 farklı ürün içerebilir.' });
+    }
+
+    // Miktarları doğrula ve tekrar eden ürün id'lerini birleştir
+    const qtyByProductId = new Map();
+    for (const raw of rawItems) {
+        const productId = Number(raw?.id);
+        const qty = Number(raw?.qty);
+        if (!Number.isInteger(productId) || productId <= 0) {
+            return res.status(400).json({ error: 'Geçersiz ürün.' });
+        }
+        if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
+            return res.status(400).json({ error: 'Ürün adedi 1 ile 20 arasında olmalı.' });
+        }
+        qtyByProductId.set(productId, (qtyByProductId.get(productId) || 0) + qty);
+    }
+
+    const ids = [...qtyByProductId.keys()];
+    const placeholders = ids.map(() => '?').join(',');
+
+    // Fiyat ve isimler istemciden değil, veritabanından okunur
+    db.all(`SELECT id, name, price FROM menu WHERE id IN (${placeholders})`, ids, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (rows.length !== ids.length) {
+            return res.status(400).json({ error: 'Sepetteki bazı ürünler artık menüde yok. Sayfayı yenileyip tekrar deneyin.' });
+        }
+
+        const items = rows.map((row) => {
+            const qty = qtyByProductId.get(row.id);
+            return { id: row.id, name: row.name, price: row.price, qty, subtotal: Math.round(row.price * qty * 100) / 100 };
+        });
+        const total = Math.round(items.reduce((sum, i) => sum + i.subtotal, 0) * 100) / 100;
+        const date = new Date().toLocaleString('tr-TR');
+
+        db.run(
+            'INSERT INTO orders (items, total, note, status, date) VALUES (?, ?, ?, ?, ?)',
+            [JSON.stringify(items), total, note, ORDER_STATUSES[0], date],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.status(201).json({ id: this.lastID, items, total, note, status: ORDER_STATUSES[0], date });
+            }
+        );
+    });
+});
+
+app.get('/api/orders', requireAuth, (req, res) => {
+    db.all('SELECT * FROM orders ORDER BY id DESC', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows.map((row) => ({ ...row, items: JSON.parse(row.items) })));
+    });
+});
+
+app.put('/api/orders/:id/status', requireAuth, (req, res) => {
+    const status = req.body?.status;
+    if (!ORDER_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Durum şunlardan biri olmalı: ${ORDER_STATUSES.join(', ')}` });
+    }
+    db.run('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Sipariş bulunamadı.' });
+        res.json({ id: Number(req.params.id), status });
     });
 });
 
