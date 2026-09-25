@@ -1,82 +1,93 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // --- Ayarlar (.env.example dosyasına bakın) ---
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || '1234';
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2 saat
 
-if (!process.env.ADMIN_PASS) {
-    console.warn('UYARI: ADMIN_PASS tanımlı değil, varsayılan demo şifresi kullanılıyor. Yayına almadan önce .env ile değiştirin.');
+// Şifre düz metin olarak saklanmaz/karşılaştırılmaz: ADMIN_PASS_HASH varsa doğrudan
+// kullanılır (önerilen), yoksa ADMIN_PASS (varsa) her başlangıçta hash'lenir.
+// Hash üretmek için: npm run hash-password -- "şifreniz"
+const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH
+    || bcrypt.hashSync(process.env.ADMIN_PASS || '1234', 10);
+
+if (!process.env.ADMIN_PASS_HASH && !process.env.ADMIN_PASS) {
+    console.warn('UYARI: ADMIN_PASS_HASH ya da ADMIN_PASS tanımlı değil, varsayılan demo şifresi kullanılıyor. Yayına almadan önce .env ile değiştirin.');
 }
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const db = new sqlite3.Database(path.join(__dirname, 'cafe.db'), (err) => {
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'cafe.db');
+const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) console.error(err.message);
     else console.log('SQLite veritabanına bağlanıldı.');
 });
 
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        price REAL,
-        category TEXT
-    )`);
+// Tablolar oluşturulup örnek veriler yüklenene kadar 'ready' bekletir.
+// Testler (bkz. tests/) sunucuyu dinlemeden önce bunu await eder.
+const ready = new Promise((resolve) => {
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS menu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price REAL,
+            category TEXT
+        )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        email TEXT,
-        message TEXT,
-        date TEXT
-    )`);
+        db.run(`CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT,
+            message TEXT,
+            date TEXT
+        )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        items TEXT,
-        total REAL,
-        note TEXT,
-        status TEXT DEFAULT 'Hazırlanıyor',
-        date TEXT
-    )`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            items TEXT,
+            total REAL,
+            note TEXT,
+            status TEXT DEFAULT 'Hazırlanıyor',
+            date TEXT
+        )`);
 
-    // Eski veritabanlarına yeni sütunları ekle, sonra menü boşsa örnek ürünlerle doldur
-    db.all("PRAGMA table_info(menu)", (err, cols) => {
-        if (err) return console.error(err.message);
-        const names = cols.map((c) => c.name);
+        // Eski veritabanlarına yeni sütunları ekle, sonra menü boşsa örnek ürünlerle doldur
+        db.all("PRAGMA table_info(menu)", (err, cols) => {
+            if (err) { console.error(err.message); return resolve(); }
+            const names = cols.map((c) => c.name);
 
-        db.serialize(() => {
-            if (!names.includes('description')) db.run("ALTER TABLE menu ADD COLUMN description TEXT DEFAULT ''");
-            if (!names.includes('image')) db.run("ALTER TABLE menu ADD COLUMN image TEXT DEFAULT ''");
+            db.serialize(() => {
+                if (!names.includes('description')) db.run("ALTER TABLE menu ADD COLUMN description TEXT DEFAULT ''");
+                if (!names.includes('image')) db.run("ALTER TABLE menu ADD COLUMN image TEXT DEFAULT ''");
 
-            db.get("SELECT count(*) as count FROM menu", (err, row) => {
-                if (err || row.count !== 0) return;
-                const samples = [
-                    ["Latte", 65, "Kahve", "Yumuşak sütlü espresso, ipeksi süt köpüğüyle."],
-                    ["Espresso", 45, "Kahve", "Yoğun aromalı, çift shot espresso."],
-                    ["Filtre Kahve", 55, "Kahve", "Günlük demlenen, hafif içimli klasik filtre kahve."],
-                    ["Pumpkin Spice Latte", 170, "Kahve", "Balkabağı ve tarçınlı baharat aromalı mevsim favorisi."],
-                    ["Cheesecake", 85, "Tatlı", "Ev yapımı, taze meyve sosuyla servis edilir."],
-                    ["Tiramisu", 90, "Tatlı", "Mascarpone kreması ve kahveye batırılmış bisküvi katmanları."],
-                    ["Çay", 25, "Sıcak İçecek", "Demlikte servis edilen taze çay."],
-                    ["Sahlep", 70, "Sıcak İçecek", "Tarçınlı, kış aylarının vazgeçilmezi."],
-                    ["Limonata", 60, "Soğuk İçecek", "Taze sıkılmış limon, nane yapraklarıyla."],
-                    ["Buzlu Çay", 45, "Soğuk İçecek", "Şeftali aromalı, bol buzlu."]
-                ];
-                const stmt = db.prepare("INSERT INTO menu (name, price, category, description) VALUES (?, ?, ?, ?)");
-                samples.forEach((row) => stmt.run(row));
-                stmt.finalize();
+                db.get("SELECT count(*) as count FROM menu", (err, row) => {
+                    if (err || row.count !== 0) return resolve();
+                    const samples = [
+                        ["Latte", 65, "Kahve", "Yumuşak sütlü espresso, ipeksi süt köpüğüyle."],
+                        ["Espresso", 45, "Kahve", "Yoğun aromalı, çift shot espresso."],
+                        ["Filtre Kahve", 55, "Kahve", "Günlük demlenen, hafif içimli klasik filtre kahve."],
+                        ["Pumpkin Spice Latte", 170, "Kahve", "Balkabağı ve tarçınlı baharat aromalı mevsim favorisi."],
+                        ["Cheesecake", 85, "Tatlı", "Ev yapımı, taze meyve sosuyla servis edilir."],
+                        ["Tiramisu", 90, "Tatlı", "Mascarpone kreması ve kahveye batırılmış bisküvi katmanları."],
+                        ["Çay", 25, "Sıcak İçecek", "Demlikte servis edilen taze çay."],
+                        ["Sahlep", 70, "Sıcak İçecek", "Tarçınlı, kış aylarının vazgeçilmezi."],
+                        ["Limonata", 60, "Soğuk İçecek", "Taze sıkılmış limon, nane yapraklarıyla."],
+                        ["Buzlu Çay", 45, "Soğuk İçecek", "Şeftali aromalı, bol buzlu."]
+                    ];
+                    const stmt = db.prepare("INSERT INTO menu (name, price, category, description) VALUES (?, ?, ?, ?)");
+                    samples.forEach((row) => stmt.run(row));
+                    stmt.finalize(resolve);
+                });
             });
         });
     });
@@ -100,12 +111,6 @@ function isValidToken(token) {
     return expected.length === given.length && crypto.timingSafeEqual(expected, given);
 }
 
-function safeEqual(a, b) {
-    const ha = crypto.createHash('sha256').update(String(a)).digest();
-    const hb = crypto.createHash('sha256').update(String(b)).digest();
-    return crypto.timingSafeEqual(ha, hb);
-}
-
 function requireAuth(req, res, next) {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -117,7 +122,9 @@ function requireAuth(req, res, next) {
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body || {};
-    if (safeEqual(username ?? '', ADMIN_USER) && safeEqual(password ?? '', ADMIN_PASS)) {
+    const validUser = typeof username === 'string' && username === ADMIN_USER;
+    const validPass = typeof password === 'string' && bcrypt.compareSync(password, ADMIN_PASS_HASH);
+    if (validUser && validPass) {
         return res.json({ token: createToken() });
     }
     res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış!' });
@@ -160,12 +167,18 @@ app.get('/api/menu', (req, res) => {
     });
 });
 
+// SQLite'ın COLLATE NOCASE'i yalnızca ASCII harfleri katlar; "İ/i", "Ü/ü" gibi
+// Türkçe harfleri eşleştirmez. Bu yüzden tekrar kontrolü JS tarafında,
+// Türkçe locale ile küçük harfe çevirerek yapılır.
+const sameName = (a, b) => a.toLocaleLowerCase('tr') === b.toLocaleLowerCase('tr');
+
 app.post('/api/menu', requireAuth, (req, res) => {
     const { error, name, price, category, description, image } = parseMenuBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    db.get("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", [name], (err, row) => {
+    db.all("SELECT id, name FROM menu", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
+        const row = rows.find((r) => sameName(r.name, name));
         if (row) return res.status(400).json({ error: `"${name}" isimli ürün zaten menüde var!` });
 
         db.run("INSERT INTO menu (name, price, category, description, image) VALUES (?, ?, ?, ?, ?)", [name, price, category, description, image], function (err) {
@@ -179,10 +192,16 @@ app.put('/api/menu/:id', requireAuth, (req, res) => {
     const { error, name, price, category, description, image } = parseMenuBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    db.run("UPDATE menu SET name = ?, price = ?, category = ?, description = ?, image = ? WHERE id = ?", [name, price, category, description, image, req.params.id], function (err) {
+    db.all("SELECT id, name FROM menu WHERE id != ?", [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: 'Ürün bulunamadı.' });
-        res.json({ id: Number(req.params.id), name, price, category, description, image });
+        const clash = rows.find((r) => sameName(r.name, name));
+        if (clash) return res.status(400).json({ error: `"${name}" isimli ürün zaten menüde var!` });
+
+        db.run("UPDATE menu SET name = ?, price = ?, category = ?, description = ?, image = ? WHERE id = ?", [name, price, category, description, image, req.params.id], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Ürün bulunamadı.' });
+            res.json({ id: Number(req.params.id), name, price, category, description, image });
+        });
     });
 });
 
@@ -301,6 +320,12 @@ app.put('/api/orders/:id/status', requireAuth, (req, res) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`Sunucu çalışıyor: http://localhost:${port}`);
-});
+if (require.main === module) {
+    ready.then(() => {
+        app.listen(port, () => {
+            console.log(`Sunucu çalışıyor: http://localhost:${port}`);
+        });
+    });
+}
+
+module.exports = { app, ready, db };
