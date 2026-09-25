@@ -4,15 +4,18 @@ Kurgusal bir kafe için geliştirilmiş, **menü ve mesaj yönetimi** yapan tam 
 
 > *English:* A full-stack café website built with Node.js, Express and SQLite. Visitors can browse the menu and send messages; an authenticated admin can manage menu items (CRUD) and read/delete contact messages.
 
+![Tests](https://github.com/mertokzlky/cafe-keyif/actions/workflows/test.yml/badge.svg)
+
 🔗 **Canlı demo:** https://cafe-keyif.onrender.com
 *(Ücretsiz Render planında çalıştığı için ilk açılış 2-3 dakika sürebilir ve sunucu yeniden başladığında veritabanı sıfırlanır.)*
 
-<!-- Ekran görüntülerini docs/screenshots/ klasörüne koyup aşağıdaki satırları açın -->
-<!--
-![Ana sayfa](docs/screenshots/home.png)
-![Menü](docs/screenshots/menu.png)
-![Yönetim paneli](docs/screenshots/admin.png)
--->
+| Menü (açık tema) | Menü (koyu tema) |
+| --- | --- |
+| ![Menü - açık tema](docs/screenshots/menu-light.png) | ![Menü - koyu tema](docs/screenshots/menu-dark.png) |
+
+| Sepet | Yönetim paneli - Siparişler |
+| --- | --- |
+| ![Sepet paneli](docs/screenshots/cart.png) | ![Sipariş yönetimi](docs/screenshots/admin-orders.png) |
 
 ## Özellikler
 
@@ -26,6 +29,8 @@ Kurgusal bir kafe için geliştirilmiş, **menü ve mesaj yönetimi** yapan tam 
 - 📩 İletişim formu ve yönetim panelinde mesaj listesi
 - ✅ Sunucu tarafında doğrulama: boş alan, negatif fiyat, aynı isimli ürün kontrolü
 - 🛡️ XSS'e karşı HTML kaçışı, parametreli SQL sorguları
+- 🔒 Yönetici şifresi `bcrypt` ile hash'lenir, düz metin olarak karşılaştırılmaz
+- ✅ Jest + Supertest ile otomatik testler, her push'ta GitHub Actions ile çalışır
 - 📱 Bootstrap 5 ile responsive tasarım
 
 ## Teknolojiler
@@ -60,8 +65,25 @@ Kullanıcı adı ve şifre `.env` dosyasındaki `ADMIN_USER` ve `ADMIN_PASS` de�
 | --- | --- | --- |
 | `PORT` | Sunucu portu | `3000` |
 | `ADMIN_USER` | Yönetici kullanıcı adı | `admin` |
-| `ADMIN_PASS` | Yönetici şifresi | `1234` (yalnızca yerel demo için, yayında mutlaka değiştirin) |
+| `ADMIN_PASS_HASH` | Yönetici şifresinin bcrypt hash'i (önerilen) | — |
+| `ADMIN_PASS` | Yönetici şifresi, düz metin (yalnızca yerel geliştirme için; `ADMIN_PASS_HASH` yoksa her açılışta hash'lenir) | `1234` |
 | `SESSION_SECRET` | Token imzalama anahtarı | Her başlatmada rastgele üretilir |
+
+Şifre hash'i üretmek için:
+
+```bash
+npm run hash-password -- "seciminiz-olan-sifre"
+```
+
+Çıkan değeri `ADMIN_PASS_HASH` olarak `.env`'e ya da Render'daki ortam değişkenlerine yazın; bu durumda `ADMIN_PASS` hiç tanımlanmasına gerek kalmaz ve düz metin şifre sunucu ortamında bulunmaz.
+
+## Testler
+
+```bash
+npm test
+```
+
+Testler gerçek bir sunucu açmaz; Express uygulamasını bellekte (`:memory:`) ayrı bir SQLite veritabanıyla doğrudan çağırır. Kimlik doğrulama, menü doğrulamaları (negatif fiyat, aynı isim — Türkçe büyük/küçük harf dahil), sipariş oluşturma ve **fiyatın istemciden değil sunucudaki veritabanından hesaplandığını** doğrulayan testler içerir. `main` dalına her push'ta ve her Pull Request'te [GitHub Actions](.github/workflows/test.yml) ile otomatik çalışır.
 
 ## API
 
@@ -102,8 +124,8 @@ cafe-keyif/
 
 ## Geliştirme fikirleri
 
-- Şifrelerin `bcrypt` ile hash'lenip veritabanında tutulması
 - Sipariş geçmişinin sayfalanması ve tarihe göre filtrelenmesi
+- Yöneticiler için ayrı kayıtlar (tek bir ortam değişkeni yerine kullanıcı tablosu)
 - Ürün görseli yükleme
 - Kalıcı veritabanı (PostgreSQL) ile canlıya alma
 - Otomatik testler (Jest + Supertest)
