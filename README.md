@@ -135,4 +135,3 @@ cafe-keyif/
 **Mert Ali Kızılkaya** — Yazılım Mühendisliği öğrencisi
 GitHub: [@mertokzlky](https://github.com/mertokzlky)
 
-Web Tasarımı ve Programlama dersi final projesi olarak geliştirilmiştir.
